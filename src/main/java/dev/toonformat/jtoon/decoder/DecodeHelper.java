@@ -164,4 +164,48 @@ public class DecodeHelper {
         DecodeHelper.checkFinalValueConflict(key, existing, value, context);
     }
 
+    /**
+     * Finds the depth of the next non-blank line, skipping blank lines.
+     *
+     * @return the depth of the next non-blank line, or null if none exists
+     */
+    protected static Integer findNextNonBlankLineDepth(DecodeContext context) {
+        int nextLineIdx = context.currentLine;
+        while (nextLineIdx < context.lines.length && DecodeHelper.isBlankLine(context.lines[nextLineIdx])) {
+            nextLineIdx++;
+        }
+
+        if (nextLineIdx >= context.lines.length) {
+            return null;
+        }
+
+        return DecodeHelper.getDepth(context.lines[nextLineIdx], context);
+    }
+
+    /**
+     * Validates that there are no multiple primitives at root level in strict mode.
+     */
+    protected static void validateNoMultiplePrimitivesAtRoot(DecodeContext context) {
+        int lineIndex = context.currentLine;
+        while (lineIndex < context.lines.length && DecodeHelper.isBlankLine(context.lines[lineIndex])) {
+            lineIndex++;
+        }
+        if (lineIndex < context.lines.length) {
+            int nextDepth = DecodeHelper.getDepth(context.lines[lineIndex], context);
+            if (nextDepth == 0) {
+                throw new IllegalArgumentException(
+                    "Multiple primitives at root depth in strict mode at line " + (lineIndex + 1));
+            }
+        }
+    }
+
+    /**
+     * Handles unexpected indentation at root level.
+     */
+    protected static Object handleUnexpectedIndentation(DecodeContext context) {
+        if (context.options.strict()) {
+            throw new IllegalArgumentException("Unexpected indentation at line " + context.currentLine);
+        }
+        return null;
+    }
 }

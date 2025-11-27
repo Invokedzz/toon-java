@@ -145,7 +145,7 @@ public class KeyDecoder {
             if (nextDepth > depth) {
                 context.currentLine++;
                 // parseNestedObject manages currentLine, so we don't increment here
-                return parseNestedObject(depth, context);
+                return ObjectDecoder.parseNestedObject(depth, context);
             } else {
                 // If value is empty, create empty object; otherwise parse as primitive
                 Object parsedValue;
@@ -202,56 +202,107 @@ public class KeyDecoder {
     }
 
     /**
-     * Parses nested object starting at currentLine.
+     * Parses a key-value pair at root level, creating a new Map.
      */
-    protected static Map<String, Object> parseNestedObject(int parentDepth, DecodeContext context) {
-        Map<String, Object> result = new LinkedHashMap<>();
+    protected static Object parseKeyValuePair(String key, String value, int depth, boolean parseRootFields,
+                                       DecodeContext context) {
+        Map<String, Object> obj = new LinkedHashMap<>();
+        KeyDecoder.parseKeyValuePairIntoMap(obj, key, value, depth, context);
 
-        while (context.currentLine < context.lines.length) {
-            String line = context.lines[context.currentLine];
-
-            // Skip blank lines
-            if (DecodeHelper.isBlankLine(line)) {
-                context.currentLine++;
-                continue;
-            }
-
-            int depth = DecodeHelper.getDepth(line, context);
-
-            if (depth <= parentDepth) {
-                return result;
-            }
-
-            if (depth == parentDepth + 1) {
-                processDirectChildLine(result, line, parentDepth, depth, context);
-            } else {
-                context.currentLine++;
-            }
+        if (parseRootFields) {
+            ObjectDecoder.parseRootObjectFields(obj, depth, context);
         }
-
-        return result;
+        return obj;
     }
 
     /**
-     * Processes a line at depth == parentDepth + 1 (direct child).
-     * Returns true if the line was processed, false if it was a blank line that was
-     * skipped.
+     * Parses a keyed array value (e.g., "items[2]{id,name}:").
      */
-    private static void processDirectChildLine(Map<String, Object> result, String line, int parentDepth, int depth, DecodeContext context) {
-        // Skip blank lines
-        if (DecodeHelper.isBlankLine(line)) {
-            context.currentLine++;
-            return;
-        }
+    protected static Object parseKeyedArrayValue(Matcher keyedArray, String content, int depth, DecodeContext context) {
+        String originalKey = keyedArray.group(1).trim();
+        String key = StringEscaper.unescape(originalKey);
+        String arrayHeader = content.substring(keyedArray.group(1).length());
 
-        String content = line.substring((parentDepth + 1) * context.options.indent());
-        Matcher keyedArray = KEYED_ARRAY_PATTERN.matcher(content);
+        var arrayValue = ArrayDecoder.parseArray(arrayHeader, depth, context);
+        Map<String, Object> obj = new LinkedHashMap<>();
 
-        if (keyedArray.matches()) {
-            KeyDecoder.processKeyedArrayLine(result, content, keyedArray, parentDepth, context);
+        // Handle path expansion for array keys
+        if (KeyDecoder.shouldExpandKey(originalKey, context)) {
+            KeyDecoder.expandPathIntoMap(obj, key, arrayValue, context);
         } else {
-            KeyDecoder.processKeyValueLine(result, content, depth, context);
+            // Check for conflicts with existing expanded paths
+            DecodeHelper.checkPathExpansionConflict(obj, key, arrayValue, context);
+            obj.put(key, arrayValue);
         }
+
+        // Continue parsing root-level fields if at depth 0
+        if (depth == 0) {
+            ObjectDecoder.parseRootObjectFields(obj, depth, context);
+        }
+
+        return obj;
     }
 
+    /**
+     * Parses a keyed array field and adds it to the item map.
+     *
+     * @param fieldContent the field content to parse
+     * @param item         the map to add the field to
+     * @param depth        the depth of the list item
+     * @return true if the field was processed as a keyed array, false otherwise
+     */
+    protected static boolean parseKeyedArrayField(String fieldContent, Map<String, Object> item, int depth, DecodeContext context) {
+        Matcher keyedArray = KEYED_ARRAY_PATTERN.matcher(fieldContent);
+        if (!keyedArray.matches()) {
+            return false;
+        }
+
+        String originalKey = keyedArray.group(1).trim();
+        String key = StringEscaper.unescape(originalKey);
+        String arrayHeader = fieldContent.substring(keyedArray.group(1).length());
+
+        // For nested arrays in list items, default to comma delimiter if not specified
+        String nestedArrayDelimiter = ArrayDecoder.extractDelimiterFromHeader(arrayHeader, context);
+        var arrayValue = ArrayDecoder.parseArrayWithDelimiter(arrayHeader, depth + 2, nestedArrayDelimiter, context);
+
+        // Handle path expansion for array keys
+        if (KeyDecoder.shouldExpandKey(originalKey, context)) {
+            KeyDecoder.expandPathIntoMap(item, key, arrayValue, context);
+        } else {
+            item.put(key, arrayValue);
+        }
+
+        // parseArrayWithDelimiter manages currentLine correctly
+        return true;
+    }
+
+    /**
+     * Parses a key-value field and adds it to the item map.
+     *
+     * @param fieldContent the field content to parse
+     * @param item         the map to add the field to
+     * @param depth        the depth of the list item
+     * @return true if the field was processed as a key-value pair, false otherwise
+     */
+    protected static boolean parseKeyValueField(String fieldContent, Map<String, Object> item, int depth, DecodeContext context) {
+        int colonIdx = DecodeHelper.findUnquotedColon(fieldContent);
+        if (colonIdx <= 0) {
+            return false;
+        }
+
+        String fieldKey = StringEscaper.unescape(fieldContent.substring(0, colonIdx).trim());
+        String fieldValue = fieldContent.substring(colonIdx + 1).trim();
+
+        Object parsedValue = ObjectDecoder.parseFieldValue(fieldValue, depth + 2, context);
+
+        // Handle path expansion
+        if (KeyDecoder.shouldExpandKey(fieldKey, context)) {
+            KeyDecoder.expandPathIntoMap(item, fieldKey, parsedValue, context);
+        } else {
+            item.put(fieldKey, parsedValue);
+        }
+
+        // parseFieldValue manages currentLine appropriately
+        return true;
+    }
 }
