@@ -151,4 +151,17 @@ public class DecodeHelper {
         }
     }
 
+    /**
+     * Checks for path expansion conflicts when setting a non-expanded key.
+     * In strict mode, throws if the key conflicts with an existing expanded path.
+     */
+    protected static void checkPathExpansionConflict(Map<String, Object> map, String key, Object value, DecodeContext context) {
+        if (!context.options.strict()) {
+            return;
+        }
+
+        Object existing = map.get(key);
+        DecodeHelper.checkFinalValueConflict(key, existing, value, context);
+    }
+
 }

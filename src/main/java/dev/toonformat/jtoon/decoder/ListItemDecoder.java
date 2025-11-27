@@ -1,6 +1,5 @@
 package dev.toonformat.jtoon.decoder;
 
-import dev.toonformat.jtoon.PathExpansion;
 import dev.toonformat.jtoon.util.StringEscaper;
 
 import java.util.LinkedHashMap;
@@ -12,9 +11,7 @@ import static dev.toonformat.jtoon.util.Headers.KEYED_ARRAY_PATTERN;
 
 public class ListItemDecoder {
 
-    private ListItemDecoder() {
-        throw new UnsupportedOperationException("Utility class cannot be instantiated");
-    }
+    private ListItemDecoder() { throw new UnsupportedOperationException("Utility class cannot be instantiated"); }
 
     /**
      * Processes a single list array item if it matches the expected depth.
@@ -142,187 +139,11 @@ public class ListItemDecoder {
         // So nested content should be parsed with parentDepth = depth + 1
         // This allows nested fields at depth + 2 or deeper to be processed correctly
         if (isEmpty && nextDepth > depth) {
-            return parseNestedObject(depth + 1, context);
+            return KeyDecoder.parseNestedObject(depth + 1, context);
         }
 
         // Handle empty value without nested content or non-empty value
         return isEmpty ? new LinkedHashMap<>() : PrimitiveDecoder.parse(value);
-    }
-
-    /**
-     * Parses nested object starting at currentLine.
-     */
-    private static Map<String, Object> parseNestedObject(int parentDepth, DecodeContext context) {
-        Map<String, Object> result = new LinkedHashMap<>();
-
-        while (context.currentLine < context.lines.length) {
-            String line = context.lines[context.currentLine];
-
-            // Skip blank lines
-            if (DecodeHelper.isBlankLine(line)) {
-                context.currentLine++;
-                continue;
-            }
-
-            int depth = DecodeHelper.getDepth(line, context);
-
-            if (depth <= parentDepth) {
-                return result;
-            }
-
-            if (depth == parentDepth + 1) {
-                processDirectChildLine(result, line, parentDepth, depth, context);
-            } else {
-                context.currentLine++;
-            }
-        }
-
-        return result;
-    }
-
-    /**
-     * Processes a line at depth == parentDepth + 1 (direct child).
-     * Returns true if the line was processed, false if it was a blank line that was
-     * skipped.
-     */
-    private static void processDirectChildLine(Map<String, Object> result, String line, int parentDepth, int depth, DecodeContext context) {
-        // Skip blank lines
-        if (DecodeHelper.isBlankLine(line)) {
-            context.currentLine++;
-            return;
-        }
-
-        String content = line.substring((parentDepth + 1) * context.options.indent());
-        Matcher keyedArray = KEYED_ARRAY_PATTERN.matcher(content);
-
-        if (keyedArray.matches()) {
-            processKeyedArrayLine(result, content, keyedArray, parentDepth, context);
-        } else {
-            processKeyValueLine(result, content, depth, context);
-        }
-    }
-
-    /**
-     * Processes a keyed array line (e.g., "key[3]: value").
-     */
-    private static void processKeyedArrayLine(Map<String, Object> result, String content, Matcher keyedArray,
-                                       int parentDepth, DecodeContext context) {
-        String originalKey = keyedArray.group(1).trim();
-        String key = StringEscaper.unescape(originalKey);
-        String arrayHeader = content.substring(keyedArray.group(1).length());
-        List<Object> arrayValue = ArrayDecoder.parseArray(arrayHeader, parentDepth + 1, context);
-
-        // Handle path expansion for array keys
-        if (shouldExpandKey(originalKey, context)) {
-            expandPathIntoMap(result, key, arrayValue, context);
-        } else {
-            // Check for conflicts with existing expanded paths
-            checkPathExpansionConflict(result, key, arrayValue, context);
-            result.put(key, arrayValue);
-        }
-    }
-
-    /**
-     * Checks for path expansion conflicts when setting a non-expanded key.
-     * In strict mode, throws if the key conflicts with an existing expanded path.
-     */
-    private static void checkPathExpansionConflict(Map<String, Object> map, String key, Object value, DecodeContext context) {
-        if (!context.options.strict()) {
-            return;
-        }
-
-        Object existing = map.get(key);
-        DecodeHelper.checkFinalValueConflict(key, existing, value, context);
-    }
-
-    /**
-     * Processes a key-value line (e.g., "key: value").
-     */
-    private static void processKeyValueLine(Map<String, Object> result, String content, int depth, DecodeContext context) {
-        int colonIdx = DecodeHelper.findUnquotedColon(content);
-
-        if (colonIdx > 0) {
-            String key = content.substring(0, colonIdx).trim();
-            String value = content.substring(colonIdx + 1).trim();
-            parseKeyValuePairIntoMap(result, key, value, depth, context);
-        } else {
-            // No colon found in key-value context - this is an error
-            if (context.options.strict()) {
-                throw new IllegalArgumentException(
-                    "Missing colon in key-value context at line " + (context.currentLine + 1));
-            }
-            context.currentLine++;
-        }
-    }
-
-    /**
-     * Parses a key-value pair and adds it to an existing map.
-     */
-    private static void parseKeyValuePairIntoMap(Map<String, Object> map, String key, String value, int depth, DecodeContext context) {
-        String unescapedKey = StringEscaper.unescape(key);
-
-        Object parsedValue = parseKeyValue(value, depth, context);
-        putKeyValueIntoMap(map, key, unescapedKey, parsedValue, context);
-    }
-
-    /**
-     * Puts a key-value pair into a map, handling path expansion.
-     *
-     * @param map          the map to put the key-value pair into
-     * @param originalKey  the original key before being unescaped (used for path
-     *                     expansion check)
-     * @param unescapedKey the unescaped key
-     * @param value        the value to put
-     */
-    private static void putKeyValueIntoMap(Map<String, Object> map, String originalKey, String unescapedKey,
-                                    Object value, DecodeContext context) {
-        // Handle path expansion
-        if (shouldExpandKey(originalKey, context)) {
-            expandPathIntoMap(map, unescapedKey, value, context);
-        } else {
-            checkPathExpansionConflict(map, unescapedKey, value, context);
-            map.put(unescapedKey, value);
-        }
-    }
-
-    /**
-     * Parses a key-value string into an Object, handling nested objects, empty
-     * values, and primitives.
-     *
-     * @param value the value string to parse
-     * @param depth the depth at which the key-value pair is located
-     * @return the parsed value (Map, List, or primitive)
-     */
-    private static Object parseKeyValue(String value, int depth, DecodeContext context) {
-        // Check if next line is nested (deeper indentation)
-        if (context.currentLine + 1 < context.lines.length) {
-            int nextDepth = DecodeHelper.getDepth(context.lines[context.currentLine + 1], context);
-            if (nextDepth > depth) {
-                context.currentLine++;
-                // parseNestedObject manages currentLine, so we don't increment here
-                return parseNestedObject(depth, context);
-            } else {
-                // If value is empty, create empty object; otherwise parse as primitive
-                Object parsedValue;
-                if (value.trim().isEmpty()) {
-                    parsedValue = new LinkedHashMap<>();
-                } else {
-                    parsedValue = PrimitiveDecoder.parse(value);
-                }
-                context.currentLine++;
-                return parsedValue;
-            }
-        } else {
-            // If value is empty, create empty object; otherwise parse as primitive
-            Object parsedValue;
-            if (value.trim().isEmpty()) {
-                parsedValue = new LinkedHashMap<>();
-            } else {
-                parsedValue = PrimitiveDecoder.parse(value);
-            }
-            context.currentLine++;
-            return parsedValue;
-        }
     }
 
     /**
@@ -377,8 +198,8 @@ public class ListItemDecoder {
         Object parsedValue = parseFieldValue(fieldValue, depth + 2, context);
 
         // Handle path expansion
-        if (shouldExpandKey(fieldKey, context)) {
-            expandPathIntoMap(item, fieldKey, parsedValue, context);
+        if (KeyDecoder.shouldExpandKey(fieldKey, context)) {
+            KeyDecoder.expandPathIntoMap(item, fieldKey, parsedValue, context);
         } else {
             item.put(fieldKey, parsedValue);
         }
@@ -401,7 +222,7 @@ public class ListItemDecoder {
             if (nextDepth > fieldDepth) {
                 context.currentLine++;
                 // parseNestedObject manages currentLine, so we don't increment here
-                return parseNestedObject(fieldDepth, context);
+                return KeyDecoder.parseNestedObject(fieldDepth, context);
             } else {
                 // If value is empty, create empty object; otherwise parse as primitive
                 if (fieldValue.trim().isEmpty()) {
@@ -422,35 +243,6 @@ public class ListItemDecoder {
                 return PrimitiveDecoder.parse(fieldValue);
             }
         }
-    }
-
-    /**
-     * Checks if a key should be expanded (is a valid identifier segment).
-     * Keys with dots that are valid identifiers can be expanded.
-     * Quoted keys are never expanded.
-     */
-    private static boolean shouldExpandKey(String key, DecodeContext context) {
-        if (context.options.expandPaths() != PathExpansion.SAFE) {
-            return false;
-        }
-        // Quoted keys should not be expanded
-        if (key.trim().startsWith("\"") && key.trim().endsWith("\"")) {
-            return false;
-        }
-        // Check if key contains dots and is a valid identifier pattern
-        if (!key.contains(".")) {
-            return false;
-        }
-        // Valid identifier: starts with letter or underscore, followed by letters,
-        // digits, underscores
-        // Each segment must match this pattern
-        String[] segments = key.split("\\.");
-        for (String segment : segments) {
-            if (!segment.matches("^[a-zA-Z_]\\w*$")) {
-                return false;
-            }
-        }
-        return true;
     }
 
     /**
@@ -476,51 +268,14 @@ public class ListItemDecoder {
         var arrayValue = ArrayDecoder.parseArrayWithDelimiter(arrayHeader, depth + 2, nestedArrayDelimiter, context);
 
         // Handle path expansion for array keys
-        if (shouldExpandKey(originalKey, context)) {
-            expandPathIntoMap(item, key, arrayValue, context);
+        if (KeyDecoder.shouldExpandKey(originalKey, context)) {
+            KeyDecoder.expandPathIntoMap(item, key, arrayValue, context);
         } else {
             item.put(key, arrayValue);
         }
 
         // parseArrayWithDelimiter manages currentLine correctly
         return true;
-    }
-
-    /**
-     * Expands a dotted key into nested object structure.
-     */
-    private static void expandPathIntoMap(Map<String, Object> map, String dottedKey, Object value, DecodeContext context) {
-        String[] segments = dottedKey.split("\\.");
-        Map<String, Object> current = map;
-
-        // Navigate/create nested structure
-        for (int i = 0; i < segments.length - 1; i++) {
-            String segment = segments[i];
-            Object existing = current.get(segment);
-
-            if (existing == null) {
-                // Create new nested object
-                Map<String, Object> nested = new LinkedHashMap<>();
-                current.put(segment, nested);
-                current = nested;
-            } else if (existing instanceof Map) {
-                // Use existing nested object
-                @SuppressWarnings("unchecked")
-                Map<String, Object> existingMap = (Map<String, Object>) existing;
-                current = existingMap;
-            } else {
-                // Conflict: existing is not a Map
-                if (context.options.strict()) {
-                    throw new IllegalArgumentException(
-                        String.format("Path expansion conflict: %s is %s, cannot expand to object",
-                            segment, existing.getClass().getSimpleName()));
-                }
-                // LWW: overwrite with new nested object
-                Map<String, Object> nested = new LinkedHashMap<>();
-                current.put(segment, nested);
-                current = nested;
-            }
-        }
     }
 
     /**
