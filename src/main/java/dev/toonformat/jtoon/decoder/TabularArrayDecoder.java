@@ -57,6 +57,64 @@ public class TabularArrayDecoder {
     }
 
     /**
+     * Parses tabular header keys from field specification.
+     * Validates delimiter consistency between bracket and brace fields.
+     */
+    private static List<String> parseTabularKeys(String keysStr, String arrayDelimiter, DecodeContext context) {
+        // Validate delimiter mismatch between bracket and brace fields
+        if (context.options.strict()) {
+            validateKeysDelimiter(keysStr, arrayDelimiter);
+        }
+
+        List<String> result = new ArrayList<>();
+        List<String> rawValues = ArrayDecoder.parseDelimitedValues(keysStr, arrayDelimiter);
+        for (String key : rawValues) {
+            result.add(StringEscaper.unescape(key));
+        }
+        return result;
+    }
+
+    /**
+     * Validates delimiter consistency in tabular header keys.
+     */
+    private static void validateKeysDelimiter(String keysStr, String expectedDelimiter) {
+        char expectedChar = expectedDelimiter.charAt(0);
+        boolean inQuotes = false;
+        boolean escaped = false;
+
+        for (int i = 0; i < keysStr.length(); i++) {
+            char c = keysStr.charAt(i);
+            if (escaped) {
+                escaped = false;
+            } else if (c == '\\') {
+                escaped = true;
+            } else if (c == '"') {
+                inQuotes = !inQuotes;
+            } else if (!inQuotes) {
+                checkDelimiterMismatch(expectedChar, c);
+            }
+        }
+    }
+
+    /**
+     * Checks for delimiter mismatch and throws an exception if found.
+     */
+    private static void checkDelimiterMismatch(char expectedChar, char actualChar) {
+        if (expectedChar == '\t' && actualChar == ',') {
+            throw new IllegalArgumentException(
+                "Delimiter mismatch: bracket declares tab, brace fields use comma");
+        }
+        if (expectedChar == '|' && actualChar == ',') {
+            throw new IllegalArgumentException(
+                "Delimiter mismatch: bracket declares pipe, brace fields use comma");
+        }
+        if (expectedChar == ',' && (actualChar == '\t' || actualChar == '|')) {
+            throw new IllegalArgumentException(
+                "Delimiter mismatch: bracket declares comma, brace fields use different delimiter");
+        }
+    }
+
+    /**
      * Processes a single line in a tabular array.
      * Returns true if parsing should continue, false if an array should terminate.
      */
@@ -174,63 +232,5 @@ public class TabularArrayDecoder {
         }
 
         return row;
-    }
-
-    /**
-     * Parses tabular header keys from field specification.
-     * Validates delimiter consistency between bracket and brace fields.
-     */
-    private static List<String> parseTabularKeys(String keysStr, String arrayDelimiter, DecodeContext context) {
-        // Validate delimiter mismatch between bracket and brace fields
-        if (context.options.strict()) {
-            validateKeysDelimiter(keysStr, arrayDelimiter);
-        }
-
-        List<String> result = new ArrayList<>();
-        List<String> rawValues = ArrayDecoder.parseDelimitedValues(keysStr, arrayDelimiter);
-        for (String key : rawValues) {
-            result.add(StringEscaper.unescape(key));
-        }
-        return result;
-    }
-
-    /**
-     * Validates delimiter consistency in tabular header keys.
-     */
-    private static void validateKeysDelimiter(String keysStr, String expectedDelimiter) {
-        char expectedChar = expectedDelimiter.charAt(0);
-        boolean inQuotes = false;
-        boolean escaped = false;
-
-        for (int i = 0; i < keysStr.length(); i++) {
-            char c = keysStr.charAt(i);
-            if (escaped) {
-                escaped = false;
-            } else if (c == '\\') {
-                escaped = true;
-            } else if (c == '"') {
-                inQuotes = !inQuotes;
-            } else if (!inQuotes) {
-                checkDelimiterMismatch(expectedChar, c);
-            }
-        }
-    }
-
-    /**
-     * Checks for delimiter mismatch and throws an exception if found.
-     */
-    private static void checkDelimiterMismatch(char expectedChar, char actualChar) {
-        if (expectedChar == '\t' && actualChar == ',') {
-            throw new IllegalArgumentException(
-                "Delimiter mismatch: bracket declares tab, brace fields use comma");
-        }
-        if (expectedChar == '|' && actualChar == ',') {
-            throw new IllegalArgumentException(
-                "Delimiter mismatch: bracket declares pipe, brace fields use comma");
-        }
-        if (expectedChar == ',' && (actualChar == '\t' || actualChar == '|')) {
-            throw new IllegalArgumentException(
-                "Delimiter mismatch: bracket declares comma, brace fields use different delimiter");
-        }
     }
 }

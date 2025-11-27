@@ -35,55 +35,6 @@ public class KeyDecoder {
     }
 
     /**
-     * Processes a key-value line (e.g., "key: value").
-     */
-    protected static void processKeyValueLine(Map<String, Object> result, String content, int depth, DecodeContext context) {
-        int colonIdx = DecodeHelper.findUnquotedColon(content);
-
-        if (colonIdx > 0) {
-            String key = content.substring(0, colonIdx).trim();
-            String value = content.substring(colonIdx + 1).trim();
-            parseKeyValuePairIntoMap(result, key, value, depth, context);
-        } else {
-            // No colon found in key-value context - this is an error
-            if (context.options.strict()) {
-                throw new IllegalArgumentException(
-                    "Missing colon in key-value context at line " + (context.currentLine + 1));
-            }
-            context.currentLine++;
-        }
-    }
-
-    /**
-     * Checks if a key should be expanded (is a valid identifier segment).
-     * Keys with dots that are valid identifiers can be expanded.
-     * Quoted keys are never expanded.
-     */
-    protected static boolean shouldExpandKey(String key, DecodeContext context) {
-        if (context.options.expandPaths() != PathExpansion.SAFE) {
-            return false;
-        }
-        // Quoted keys should not be expanded
-        if (key.trim().startsWith("\"") && key.trim().endsWith("\"")) {
-            return false;
-        }
-        // Check if key contains dots and is a valid identifier pattern
-        if (!key.contains(".")) {
-            return false;
-        }
-        // Valid identifier: starts with letter or underscore, followed by letters,
-        // digits, underscores
-        // Each segment must match this pattern
-        String[] segments = key.split("\\.");
-        for (String segment : segments) {
-            if (!segment.matches("^[a-zA-Z_]\\w*$")) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    /**
      * Expands a dotted key into nested object structure.
      */
     protected static void expandPathIntoMap(Map<String, Object> map, String dottedKey, Object value, DecodeContext context) {
@@ -128,6 +79,66 @@ public class KeyDecoder {
         // LWW: last write wins (always overwrite in non-strict, or if types match in
         // strict)
         current.put(finalSegment, value);
+    }
+
+    /**
+     * Processes a key-value line (e.g., "key: value").
+     */
+    protected static void processKeyValueLine(Map<String, Object> result, String content, int depth, DecodeContext context) {
+        int colonIdx = DecodeHelper.findUnquotedColon(content);
+
+        if (colonIdx > 0) {
+            String key = content.substring(0, colonIdx).trim();
+            String value = content.substring(colonIdx + 1).trim();
+            parseKeyValuePairIntoMap(result, key, value, depth, context);
+        } else {
+            // No colon found in key-value context - this is an error
+            if (context.options.strict()) {
+                throw new IllegalArgumentException(
+                    "Missing colon in key-value context at line " + (context.currentLine + 1));
+            }
+            context.currentLine++;
+        }
+    }
+
+    /**
+     * Parses a key-value pair and adds it to an existing map.
+     */
+    protected static void parseKeyValuePairIntoMap(Map<String, Object> map, String key, String value,
+                                                   int depth, DecodeContext context) {
+        String unescapedKey = StringEscaper.unescape(key);
+
+        Object parsedValue = parseKeyValue(value, depth, context);
+        putKeyValueIntoMap(map, key, unescapedKey, parsedValue, context);
+    }
+
+    /**
+     * Checks if a key should be expanded (is a valid identifier segment).
+     * Keys with dots that are valid identifiers can be expanded.
+     * Quoted keys are never expanded.
+     */
+    protected static boolean shouldExpandKey(String key, DecodeContext context) {
+        if (context.options.expandPaths() != PathExpansion.SAFE) {
+            return false;
+        }
+        // Quoted keys should not be expanded
+        if (key.trim().startsWith("\"") && key.trim().endsWith("\"")) {
+            return false;
+        }
+        // Check if key contains dots and is a valid identifier pattern
+        if (!key.contains(".")) {
+            return false;
+        }
+        // Valid identifier: starts with letter or underscore, followed by letters,
+        // digits, underscores
+        // Each segment must match this pattern
+        String[] segments = key.split("\\.");
+        for (String segment : segments) {
+            if (!segment.matches("^[a-zA-Z_]\\w*$")) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -188,17 +199,6 @@ public class KeyDecoder {
             DecodeHelper.checkPathExpansionConflict(map, unescapedKey, value, context);
             map.put(unescapedKey, value);
         }
-    }
-
-    /**
-     * Parses a key-value pair and adds it to an existing map.
-     */
-    protected static void parseKeyValuePairIntoMap(Map<String, Object> map, String key, String value,
-                                                 int depth, DecodeContext context) {
-        String unescapedKey = StringEscaper.unescape(key);
-
-        Object parsedValue = parseKeyValue(value, depth, context);
-        putKeyValueIntoMap(map, key, unescapedKey, parsedValue, context);
     }
 
     /**

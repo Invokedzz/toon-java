@@ -103,7 +103,7 @@ public class DecodeHelper {
      * Finds the index of the first unquoted colon in a line.
      * Critical for handling quoted keys like "order:id": value.
      */
-    public static int findUnquotedColon(String content) {
+    protected static int findUnquotedColon(String content) {
         boolean inQuotes = false;
         boolean escaped = false;
 

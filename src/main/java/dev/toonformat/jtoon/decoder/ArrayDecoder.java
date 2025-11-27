@@ -15,7 +15,7 @@ public class ArrayDecoder {
      * Parses array from header string and following lines.
      * Detects array type (tabular, list, or primitive) and routes accordingly.
      */
-    public static List<Object> parseArray(String header, int depth, DecodeContext context) {
+    protected static List<Object> parseArray(String header, int depth, DecodeContext context) {
         String arrayDelimiter = extractDelimiterFromHeader(header, context);
 
         return parseArrayWithDelimiter(header, depth, arrayDelimiter, context);
@@ -25,7 +25,7 @@ public class ArrayDecoder {
      * Extracts delimiter from array header.
      * Returns tab, pipe, or comma (default) based on header pattern.
      */
-    public static String extractDelimiterFromHeader(String header, DecodeContext context) {
+    protected static String extractDelimiterFromHeader(String header, DecodeContext context) {
         Matcher matcher = ARRAY_HEADER_PATTERN.matcher(header);
         if (matcher.find()) {
             String delimChar = matcher.group(3);
@@ -46,7 +46,7 @@ public class ArrayDecoder {
      * delimiter.
      * Detects array type (tabular, list, or primitive) and routes accordingly.
      */
-    public static List<Object> parseArrayWithDelimiter(String header, int depth, String arrayDelimiter, DecodeContext context) {
+    protected static List<Object> parseArrayWithDelimiter(String header, int depth, String arrayDelimiter, DecodeContext context) {
         Matcher tabularMatcher = TABULAR_HEADER_PATTERN.matcher(header);
         Matcher arrayMatcher = ARRAY_HEADER_PATTERN.matcher(header);
 
@@ -102,6 +102,95 @@ public class ArrayDecoder {
             throw new IllegalArgumentException("Invalid array header: " + header);
         }
         return Collections.emptyList();
+    }
+
+    /**
+     * Validates array length if declared in header.
+     */
+    protected static void validateArrayLength(String header, int actualLength) {
+        Integer declaredLength = extractLengthFromHeader(header);
+        if (declaredLength != null && declaredLength != actualLength) {
+            throw new IllegalArgumentException(
+                String.format("Array length mismatch: declared %d, found %d", declaredLength, actualLength));
+        }
+    }
+
+    /**
+     * Extracts declared length from array header.
+     * Returns the number specified in [n] or null if not found.
+     */
+    private static Integer extractLengthFromHeader(String header) {
+        Matcher matcher = ARRAY_HEADER_PATTERN.matcher(header);
+        if (matcher.find()) {
+            try {
+                return Integer.parseInt(matcher.group(2));
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Parses array values from a delimiter-separated string.
+     */
+    protected static List<Object> parseArrayValues(String values, String arrayDelimiter) {
+        List<Object> result = new ArrayList<>();
+        List<String> rawValues = parseDelimitedValues(values, arrayDelimiter);
+        for (String value : rawValues) {
+            result.add(PrimitiveDecoder.parse(value));
+        }
+        return result;
+    }
+
+    /**
+     * Splits a string by delimiter, respecting quoted sections.
+     * Whitespace around delimiters is tolerated and trimmed.
+     */
+    protected static List<String> parseDelimitedValues(String input, String arrayDelimiter) {
+        List<String> result = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        boolean inQuotes = false;
+        boolean escaped = false;
+        char delimChar = arrayDelimiter.charAt(0);
+
+        int i = 0;
+        while (i < input.length()) {
+            char c = input.charAt(i);
+
+            if (escaped) {
+                current.append(c);
+                escaped = false;
+                i++;
+            } else if (c == '\\') {
+                current.append(c);
+                escaped = true;
+                i++;
+            } else if (c == '"') {
+                current.append(c);
+                inQuotes = !inQuotes;
+                i++;
+            } else if (c == delimChar && !inQuotes) {
+                // Found delimiter - add current value (trimmed) and reset
+                String value = current.toString().trim();
+                result.add(value);
+                current = new StringBuilder();
+                // Skip whitespace after delimiter
+                do {
+                    i++;
+                } while (i < input.length() && Character.isWhitespace(input.charAt(i)));
+            } else {
+                current.append(c);
+                i++;
+            }
+        }
+
+        // Add final value
+        if (!current.isEmpty() || input.endsWith(arrayDelimiter)) {
+            result.add(current.toString().trim());
+        }
+
+        return result;
     }
 
     /**
@@ -175,94 +264,5 @@ public class ArrayDecoder {
             return !content.startsWith("-"); // Not an array item - terminate
         }
         return false;
-    }
-
-    /**
-     * Parses array values from a delimiter-separated string.
-     */
-    protected static List<Object> parseArrayValues(String values, String arrayDelimiter) {
-        List<Object> result = new ArrayList<>();
-        List<String> rawValues = parseDelimitedValues(values, arrayDelimiter);
-        for (String value : rawValues) {
-            result.add(PrimitiveDecoder.parse(value));
-        }
-        return result;
-    }
-
-    /**
-     * Splits a string by delimiter, respecting quoted sections.
-     * Whitespace around delimiters is tolerated and trimmed.
-     */
-    protected static List<String> parseDelimitedValues(String input, String arrayDelimiter) {
-        List<String> result = new ArrayList<>();
-        StringBuilder current = new StringBuilder();
-        boolean inQuotes = false;
-        boolean escaped = false;
-        char delimChar = arrayDelimiter.charAt(0);
-
-        int i = 0;
-        while (i < input.length()) {
-            char c = input.charAt(i);
-
-            if (escaped) {
-                current.append(c);
-                escaped = false;
-                i++;
-            } else if (c == '\\') {
-                current.append(c);
-                escaped = true;
-                i++;
-            } else if (c == '"') {
-                current.append(c);
-                inQuotes = !inQuotes;
-                i++;
-            } else if (c == delimChar && !inQuotes) {
-                // Found delimiter - add current value (trimmed) and reset
-                String value = current.toString().trim();
-                result.add(value);
-                current = new StringBuilder();
-                // Skip whitespace after delimiter
-                do {
-                    i++;
-                } while (i < input.length() && Character.isWhitespace(input.charAt(i)));
-            } else {
-                current.append(c);
-                i++;
-            }
-        }
-
-        // Add final value
-        if (!current.isEmpty() || input.endsWith(arrayDelimiter)) {
-            result.add(current.toString().trim());
-        }
-
-        return result;
-    }
-
-    /**
-     * Validates array length if declared in header.
-     */
-    protected static void validateArrayLength(String header, int actualLength) {
-        Integer declaredLength = extractLengthFromHeader(header);
-        if (declaredLength != null && declaredLength != actualLength) {
-            throw new IllegalArgumentException(
-                String.format("Array length mismatch: declared %d, found %d", declaredLength, actualLength));
-        }
-    }
-
-    /**
-     * Extracts declared length from array header.
-     * Returns the number specified in [n] or null if not found.
-     */
-    private static Integer extractLengthFromHeader(String header) {
-        Matcher matcher = ARRAY_HEADER_PATTERN.matcher(header);
-        if (matcher.find()) {
-            try {
-                return Integer.parseInt(matcher.group(2));
-            } catch (NumberFormatException e) {
-                return null;
-            }
-        }
-        return null;
     }
 }

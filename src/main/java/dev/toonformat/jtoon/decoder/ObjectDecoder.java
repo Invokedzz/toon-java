@@ -152,7 +152,7 @@ public class ObjectDecoder {
             if (nextDepth > fieldDepth) {
                 context.currentLine++;
                 // parseNestedObject manages currentLine, so we don't increment here
-                return ObjectDecoder.parseNestedObject(fieldDepth, context);
+                return parseNestedObject(fieldDepth, context);
             } else {
                 // If value is empty, create empty object; otherwise parse as primitive
                 if (fieldValue.trim().isEmpty()) {
