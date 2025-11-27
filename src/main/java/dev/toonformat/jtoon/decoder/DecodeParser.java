@@ -6,9 +6,7 @@ import dev.toonformat.jtoon.util.StringEscaper;
 
 import java.util.*;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
-import static dev.toonformat.jtoon.util.Headers.ARRAY_HEADER_PATTERN;
 import static dev.toonformat.jtoon.util.Headers.KEYED_ARRAY_PATTERN;
 
 /**
@@ -17,10 +15,6 @@ import static dev.toonformat.jtoon.util.Headers.KEYED_ARRAY_PATTERN;
  */
 public class DecodeParser {
 
-  //  private final String[] lines;
-  //  private final DecodeOptions options;
-  //  private final String delimiter;
-  //  private int currentLine = 0;
     private final DecodeContext context = new DecodeContext();
 
     DecodeParser(String toon, DecodeOptions options) {
@@ -39,7 +33,7 @@ public class DecodeParser {
             }
 
             String line = context.lines[context.currentLine];
-            int depth = getDepth(line);
+            int depth = DecodeHelper.getDepth(line, context);
 
             if (depth > 0) {
                 return handleUnexpectedIndentation();
@@ -59,7 +53,7 @@ public class DecodeParser {
             }
 
             // Handle key-value pairs: name: Ada
-            int colonIdx = findUnquotedColon(content);
+            int colonIdx = DecodeHelper.findUnquotedColon(content);
             if (colonIdx > 0) {
                 String key = content.substring(0, colonIdx).trim();
                 String value = content.substring(colonIdx + 1).trim();
@@ -128,143 +122,15 @@ public class DecodeParser {
      */
     private void validateNoMultiplePrimitivesAtRoot() {
         int lineIndex = context.currentLine;
-        while (lineIndex < context.lines.length && isBlankLine(context.lines[lineIndex])) {
+        while (lineIndex < context.lines.length && DecodeHelper.isBlankLine(context.lines[lineIndex])) {
             lineIndex++;
         }
         if (lineIndex < context.lines.length) {
-            int nextDepth = getDepth(context.lines[lineIndex]);
+            int nextDepth = DecodeHelper.getDepth(context.lines[lineIndex], context);
             if (nextDepth == 0) {
                 throw new IllegalArgumentException(
                     "Multiple primitives at root depth in strict mode at line " + (lineIndex + 1));
             }
-        }
-    }
-
-    /**
-     * Extracts delimiter from array header.
-     * Returns tab, pipe, or comma (default) based on header pattern.
-     */
-    private String extractDelimiterFromHeader(String header) {
-        Matcher matcher = ARRAY_HEADER_PATTERN.matcher(header);
-        if (matcher.find()) {
-            String delimChar = matcher.group(3);
-            if (delimChar != null) {
-                if ("\t".equals(delimChar)) {
-                    return "\t";
-                } else if ("|".equals(delimChar)) {
-                    return "|";
-                }
-            }
-        }
-        // Default to comma
-        return context.delimiter;
-    }
-
-    /**
-     * Checks if a line is blank (empty or only whitespace).
-     */
-    private boolean isBlankLine(String line) {
-        return line.trim().isEmpty();
-    }
-
-    /**
-     * Parses list array format where items are prefixed with "- ".
-     * Example: items[2]:\n - item1\n - item2
-     */
-    protected List<Object> parseListArray(int depth, String header, DecodeContext context) {
-        List<Object> result = new ArrayList<>();
-        context.currentLine++;
-
-        boolean shouldContinue = true;
-        while (shouldContinue && context.currentLine < context.lines.length) {
-            String line = context.lines[context.currentLine];
-
-            if (isBlankLine(line)) {
-                if (handleBlankLineInListArray(depth, context)) {
-                    shouldContinue = false;
-                }
-            } else {
-                int lineDepth = getDepth(line);
-                if (shouldTerminateListArray(lineDepth, depth, line)) {
-                    shouldContinue = false;
-                } else {
-                    processListArrayItem(line, lineDepth, depth, result);
-                }
-            }
-        }
-
-        if (header != null) {
-            ArrayDecoder.validateArrayLength(header, result.size());
-        }
-        return result;
-    }
-
-    /**
-     * Finds the next non-blank line starting from the given index.
-     */
-    private int findNextNonBlankLine(int startIndex, DecodeContext context) {
-        int index = startIndex;
-        while (index < context.lines.length && isBlankLine(context.lines[index])) {
-            index++;
-        }
-        return index;
-    }
-
-    /**
-     * Handles blank line processing in list array.
-     * Returns true if array should terminate, false if line should be skipped.
-     */
-    private boolean handleBlankLineInListArray(int depth, DecodeContext context) {
-        int nextNonBlankLine = findNextNonBlankLine(context.currentLine + 1, context);
-
-        if (nextNonBlankLine >= context.lines.length) {
-            return true; // End of file - terminate array
-        }
-
-        int nextDepth = getDepth(context.lines[nextNonBlankLine]);
-        if (nextDepth <= depth) {
-            return true; // Blank line is outside array - terminate
-        }
-
-        // Blank line is inside array
-        if (context.options.strict()) {
-            throw new IllegalArgumentException("Blank line inside list array at line " + (context.currentLine + 1));
-        }
-        // In non-strict mode, skip blank lines
-        context.currentLine++;
-        return false;
-    }
-
-    /**
-     * Determines if list array parsing should terminate based online depth.
-     * Returns true if array should terminate, false otherwise.
-     */
-    private boolean shouldTerminateListArray(int lineDepth, int depth, String line) {
-        if (lineDepth < depth + 1) {
-            return true; // Line depth is less than expected - terminate
-        }
-        // Also terminate if line is at expected depth but doesn't start with "-"
-        if (lineDepth == depth + 1) {
-            String content = line.substring((depth + 1) * context.options.indent());
-            return !content.startsWith("-"); // Not an array item - terminate
-        }
-        return false;
-    }
-
-    /**
-     * Processes a single list array item if it matches the expected depth.
-     */
-    private void processListArrayItem(String line, int lineDepth, int depth, List<Object> result) {
-        if (lineDepth == depth + 1) {
-            String content = line.substring((depth + 1) * context.options.indent());
-
-            if (content.startsWith("-")) {
-                result.add(ListItemDecoder.parseListItem(content, depth, context));
-            } else {
-                context.currentLine++;
-            }
-        } else {
-            context.currentLine++;
         }
     }
 
@@ -274,14 +140,14 @@ public class DecodeParser {
     private void parseRootObjectFields(Map<String, Object> obj, int depth) {
         while (context.currentLine < context.lines.length) {
             String line = context.lines[context.currentLine];
-            int lineDepth = getDepth(line);
+            int lineDepth = DecodeHelper.getDepth(line, context);
 
             if (lineDepth != depth) {
                 return;
             }
 
             // Skip blank lines
-            if (isBlankLine(line)) {
+            if (DecodeHelper.isBlankLine(line)) {
                 context.currentLine++;
                 continue;
             }
@@ -292,7 +158,7 @@ public class DecodeParser {
             if (keyedArray.matches()) {
                 processRootKeyedArrayLine(obj, content, keyedArray, depth);
             } else {
-                int colonIdx = findUnquotedColon(content);
+                int colonIdx = DecodeHelper.findUnquotedColon(content);
                 if (colonIdx > 0) {
                     String key = content.substring(0, colonIdx).trim();
                     String value = content.substring(colonIdx + 1).trim();
@@ -335,12 +201,12 @@ public class DecodeParser {
             String line = context.lines[context.currentLine];
 
             // Skip blank lines
-            if (isBlankLine(line)) {
+            if (DecodeHelper.isBlankLine(line)) {
                 context.currentLine++;
                 continue;
             }
 
-            int depth = getDepth(line);
+            int depth = DecodeHelper.getDepth(line, context);
 
             if (depth <= parentDepth) {
                 return result;
@@ -363,7 +229,7 @@ public class DecodeParser {
      */
     private void processDirectChildLine(Map<String, Object> result, String line, int parentDepth, int depth) {
         // Skip blank lines
-        if (isBlankLine(line)) {
+        if (DecodeHelper.isBlankLine(line)) {
             context.currentLine++;
             return;
         }
@@ -402,7 +268,7 @@ public class DecodeParser {
      * Processes a key-value line (e.g., "key: value").
      */
     private void processKeyValueLine(Map<String, Object> result, String content, int depth) {
-        int colonIdx = findUnquotedColon(content);
+        int colonIdx = DecodeHelper.findUnquotedColon(content);
 
         if (colonIdx > 0) {
             String key = content.substring(0, colonIdx).trim();
@@ -487,27 +353,11 @@ public class DecodeParser {
         String finalSegment = segments[segments.length - 1];
         Object existing = current.get(finalSegment);
 
-        checkFinalValueConflict(finalSegment, existing, value);
+        DecodeHelper.checkFinalValueConflict(finalSegment, existing, value, context);
 
         // LWW: last write wins (always overwrite in non-strict, or if types match in
         // strict)
         current.put(finalSegment, value);
-    }
-
-    private void checkFinalValueConflict(String finalSegment, Object existing, Object value) {
-        if (existing != null && context.options.strict()) {
-            // Check for conflicts in strict mode
-            if (existing instanceof Map && !(value instanceof Map)) {
-                throw new IllegalArgumentException(
-                    String.format("Path expansion conflict: %s is object, cannot set to %s",
-                        finalSegment, value.getClass().getSimpleName()));
-            }
-            if (existing instanceof List && !(value instanceof List)) {
-                throw new IllegalArgumentException(
-                    String.format("Path expansion conflict: %s is array, cannot set to %s",
-                        finalSegment, value.getClass().getSimpleName()));
-            }
-        }
     }
 
     /**
@@ -521,7 +371,7 @@ public class DecodeParser {
     private Object parseKeyValue(String value, int depth) {
         // Check if next line is nested (deeper indentation)
         if (context.currentLine + 1 < context.lines.length) {
-            int nextDepth = getDepth(context.lines[context.currentLine + 1]);
+            int nextDepth = DecodeHelper.getDepth(context.lines[context.currentLine + 1], context);
             if (nextDepth > depth) {
                 context.currentLine++;
                 // parseNestedObject manages currentLine, so we don't increment here
@@ -603,114 +453,6 @@ public class DecodeParser {
         }
 
         Object existing = map.get(key);
-        checkFinalValueConflict(key, existing, value);
-    }
-
-    /**
-     * Finds the index of the first unquoted colon in a line.
-     * Critical for handling quoted keys like "order:id": value.
-     */
-    private int findUnquotedColon(String content) {
-        boolean inQuotes = false;
-        boolean escaped = false;
-
-        for (int i = 0; i < content.length(); i++) {
-            char c = content.charAt(i);
-
-            if (escaped) {
-                escaped = false;
-            } else if (c == '\\') {
-                escaped = true;
-            } else if (c == '"') {
-                inQuotes = !inQuotes;
-            } else if (c == ':' && !inQuotes) {
-                return i;
-            }
-        }
-
-        return -1;
-    }
-
-    /**
-     * Calculates indentation depth (nesting level) of a line.
-     * Counts leading spaces in multiples of the configured indent size.
-     * In strict mode, validates indentation (no tabs, proper multiples).
-     */
-    private int getDepth(String line) {
-        // Blank lines (including lines with only spaces) have depth 0
-        if (isBlankLine(line)) {
-            return 0;
-        }
-
-        // Validate indentation (including tabs) in strict mode
-        // Check for tabs first before any other processing
-        if (context.options.strict() && !line.isEmpty() && line.charAt(0) == '\t') {
-            throw new IllegalArgumentException(
-                String.format("Tab character used in indentation at line %d", context.currentLine + 1));
-        }
-
-        if (context.options.strict()) {
-            validateIndentation(line);
-        }
-
-        int depth;
-        int indentSize = context.options.indent();
-        int leadingSpaces = 0;
-
-        // Count leading spaces
-        for (int i = 0; i < line.length(); i++) {
-            if (line.charAt(i) == ' ') {
-                leadingSpaces++;
-            } else {
-                break;
-            }
-        }
-
-        // Calculate depth based on indent size
-        depth = leadingSpaces / indentSize;
-
-        // In strict mode, check if it's an exact multiple
-        if (context.options.strict() && leadingSpaces > 0
-            && leadingSpaces % indentSize != 0) {
-            throw new IllegalArgumentException(
-                String.format("Non-multiple indentation: %d spaces with indent=%d at line %d",
-                    leadingSpaces, indentSize, context.currentLine + 1));
-        }
-
-        return depth;
-    }
-
-    /**
-     * Validates indentation in strict mode.
-     * Checks for tabs, mixed tabs/spaces, and non-multiple indentation.
-     */
-    private void validateIndentation(String line) {
-        if (line.trim().isEmpty()) {
-            // Blank lines are allowed (handled separately)
-            return;
-        }
-
-        int indentSize = context.options.indent();
-        int leadingSpaces = 0;
-
-        for (int i = 0; i < line.length(); i++) {
-            char c = line.charAt(i);
-            if (c == '\t') {
-                throw new IllegalArgumentException(
-                    String.format("Tab character used in indentation at line %d", context.currentLine + 1));
-            } else if (c == ' ') {
-                leadingSpaces++;
-            } else {
-                // Reached non-whitespace
-                break;
-            }
-        }
-
-        // Check for non-multiple indentation (only if there's actual content)
-        if (leadingSpaces > 0 && leadingSpaces % indentSize != 0) {
-            throw new IllegalArgumentException(
-                String.format("Non-multiple indentation: %d spaces with indent=%d at line %d",
-                    leadingSpaces, indentSize, context.currentLine + 1));
-        }
+        DecodeHelper.checkFinalValueConflict(key, existing, value, context);
     }
 }

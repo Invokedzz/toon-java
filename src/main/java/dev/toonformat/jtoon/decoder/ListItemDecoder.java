@@ -12,6 +12,10 @@ import static dev.toonformat.jtoon.util.Headers.KEYED_ARRAY_PATTERN;
 
 public class ListItemDecoder {
 
+    private ListItemDecoder() {
+        throw new UnsupportedOperationException("Utility class cannot be instantiated");
+    }
+
     /**
      * Processes a single list array item if it matches the expected depth.
      */
@@ -85,7 +89,7 @@ public class ListItemDecoder {
             return item;
         }
 
-        int colonIdx = TabularArrayDecoder.findUnquotedColon(itemContent);
+        int colonIdx = DecodeHelper.findUnquotedColon(itemContent);
 
         // Simple scalar: - value
         if (colonIdx <= 0) {
@@ -155,12 +159,12 @@ public class ListItemDecoder {
             String line = context.lines[context.currentLine];
 
             // Skip blank lines
-            if (ArrayDecoder.isBlankLine(line)) {
+            if (DecodeHelper.isBlankLine(line)) {
                 context.currentLine++;
                 continue;
             }
 
-            int depth = ArrayDecoder.getDepth(line, context);
+            int depth = DecodeHelper.getDepth(line, context);
 
             if (depth <= parentDepth) {
                 return result;
@@ -183,7 +187,7 @@ public class ListItemDecoder {
      */
     private static void processDirectChildLine(Map<String, Object> result, String line, int parentDepth, int depth, DecodeContext context) {
         // Skip blank lines
-        if (ArrayDecoder.isBlankLine(line)) {
+        if (DecodeHelper.isBlankLine(line)) {
             context.currentLine++;
             return;
         }
@@ -228,30 +232,14 @@ public class ListItemDecoder {
         }
 
         Object existing = map.get(key);
-        checkFinalValueConflict(key, existing, value, context);
-    }
-
-    private static void checkFinalValueConflict(String finalSegment, Object existing, Object value, DecodeContext context) {
-        if (existing != null && context.options.strict()) {
-            // Check for conflicts in strict mode
-            if (existing instanceof Map && !(value instanceof Map)) {
-                throw new IllegalArgumentException(
-                    String.format("Path expansion conflict: %s is object, cannot set to %s",
-                        finalSegment, value.getClass().getSimpleName()));
-            }
-            if (existing instanceof List && !(value instanceof List)) {
-                throw new IllegalArgumentException(
-                    String.format("Path expansion conflict: %s is array, cannot set to %s",
-                        finalSegment, value.getClass().getSimpleName()));
-            }
-        }
+        DecodeHelper.checkFinalValueConflict(key, existing, value, context);
     }
 
     /**
      * Processes a key-value line (e.g., "key: value").
      */
     private static void processKeyValueLine(Map<String, Object> result, String content, int depth, DecodeContext context) {
-        int colonIdx = TabularArrayDecoder.findUnquotedColon(content);
+        int colonIdx = DecodeHelper.findUnquotedColon(content);
 
         if (colonIdx > 0) {
             String key = content.substring(0, colonIdx).trim();
@@ -308,7 +296,7 @@ public class ListItemDecoder {
     private static Object parseKeyValue(String value, int depth, DecodeContext context) {
         // Check if next line is nested (deeper indentation)
         if (context.currentLine + 1 < context.lines.length) {
-            int nextDepth = ArrayDecoder.getDepth(context.lines[context.currentLine + 1], context);
+            int nextDepth = DecodeHelper.getDepth(context.lines[context.currentLine + 1], context);
             if (nextDepth > depth) {
                 context.currentLine++;
                 // parseNestedObject manages currentLine, so we don't increment here
@@ -343,7 +331,7 @@ public class ListItemDecoder {
     private static void parseListItemFields(Map<String, Object> item, int depth, DecodeContext context) {
         while (context.currentLine < context.lines.length) {
             String line = context.lines[context.currentLine];
-            int lineDepth = ArrayDecoder.getDepth(line, context);
+            int lineDepth = DecodeHelper.getDepth(line, context);
 
             if (lineDepth < depth + 2) {
                 return;
@@ -378,7 +366,7 @@ public class ListItemDecoder {
      * @return true if the field was processed as a key-value pair, false otherwise
      */
     private static boolean parseKeyValueField(String fieldContent, Map<String, Object> item, int depth, DecodeContext context) {
-        int colonIdx = TabularArrayDecoder.findUnquotedColon(fieldContent);
+        int colonIdx = DecodeHelper.findUnquotedColon(fieldContent);
         if (colonIdx <= 0) {
             return false;
         }
@@ -409,7 +397,7 @@ public class ListItemDecoder {
     private static Object parseFieldValue(String fieldValue, int fieldDepth, DecodeContext context) {
         // Check if next line is nested
         if (context.currentLine + 1 < context.lines.length) {
-            int nextDepth = ArrayDecoder.getDepth(context.lines[context.currentLine + 1], context);
+            int nextDepth = DecodeHelper.getDepth(context.lines[context.currentLine + 1], context);
             if (nextDepth > fieldDepth) {
                 context.currentLine++;
                 // parseNestedObject manages currentLine, so we don't increment here
@@ -542,7 +530,7 @@ public class ListItemDecoder {
      */
     private static Integer findNextNonBlankLineDepth(DecodeContext context) {
         int nextLineIdx = context.currentLine;
-        while (nextLineIdx < context.lines.length && ArrayDecoder.isBlankLine(context.lines[nextLineIdx])) {
+        while (nextLineIdx < context.lines.length && DecodeHelper.isBlankLine(context.lines[nextLineIdx])) {
             nextLineIdx++;
         }
 
@@ -550,7 +538,7 @@ public class ListItemDecoder {
             return null;
         }
 
-        return ArrayDecoder.getDepth(context.lines[nextLineIdx], context);
+        return DecodeHelper.getDepth(context.lines[nextLineIdx], context);
     }
 
 }

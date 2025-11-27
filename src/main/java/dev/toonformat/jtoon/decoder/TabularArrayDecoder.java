@@ -36,9 +36,9 @@ public class TabularArrayDecoder {
         // Determine the expected row depth dynamically from the first non-blank line
         int expectedRowDepth;
         if (context.currentLine < context.lines.length) {
-            int nextNonBlankLine = findNextNonBlankLine(context.currentLine, context);
+            int nextNonBlankLine = DecodeHelper.findNextNonBlankLine(context.currentLine, context);
             if (nextNonBlankLine < context.lines.length) {
-                expectedRowDepth = getDepth(context.lines[nextNonBlankLine], context);
+                expectedRowDepth = DecodeHelper.getDepth(context.lines[nextNonBlankLine], context);
             } else {
                 expectedRowDepth = depth + 1;
             }
@@ -64,11 +64,11 @@ public class TabularArrayDecoder {
                                             List<Object> result, DecodeContext context) {
         String line = context.lines[context.currentLine];
 
-        if (isBlankLine(line)) {
+        if (DecodeHelper.isBlankLine(line)) {
             return !handleBlankLineInTabularArray(expectedRowDepth, context);
         }
 
-        int lineDepth = getDepth(line, context);
+        int lineDepth = DecodeHelper.getDepth(line, context);
         if (shouldTerminateTabularArray(line, lineDepth, expectedRowDepth, context)) {
             return false;
         }
@@ -84,10 +84,10 @@ public class TabularArrayDecoder {
      * Returns true if an array should terminate, false if a line should be skipped.
      */
     private static boolean handleBlankLineInTabularArray(int expectedRowDepth, DecodeContext context) {
-        int nextNonBlankLine = findNextNonBlankLine(context.currentLine + 1, context);
+        int nextNonBlankLine = DecodeHelper.findNextNonBlankLine(context.currentLine + 1, context);
 
         if (nextNonBlankLine < context.lines.length) {
-            int nextDepth = getDepth(context.lines[nextNonBlankLine], context);
+            int nextDepth = DecodeHelper.getDepth(context.lines[nextNonBlankLine], context);
             // Header depth is one level above the expected row depth
             int headerDepth = expectedRowDepth - 1;
             if (nextDepth <= headerDepth) {
@@ -106,107 +106,6 @@ public class TabularArrayDecoder {
     }
 
     /**
-     * Calculates indentation depth (nesting level) of a line.
-     * Counts leading spaces in multiples of the configured indent size.
-     * In strict mode, validates indentation (no tabs, proper multiples).
-     */
-    private static int getDepth(String line, DecodeContext context) {
-        // Blank lines (including lines with only spaces) have depth 0
-        if (isBlankLine(line)) {
-            return 0;
-        }
-
-        // Validate indentation (including tabs) in strict mode
-        // Check for tabs first before any other processing
-        if (context.options.strict() && !line.isEmpty() && line.charAt(0) == '\t') {
-            throw new IllegalArgumentException(
-                String.format("Tab character used in indentation at line %d", context.currentLine + 1));
-        }
-
-        if (context.options.strict()) {
-            validateIndentation(line, context);
-        }
-
-        int depth;
-        int indentSize = context.options.indent();
-        int leadingSpaces = 0;
-
-        // Count leading spaces
-        for (int i = 0; i < line.length(); i++) {
-            if (line.charAt(i) == ' ') {
-                leadingSpaces++;
-            } else {
-                break;
-            }
-        }
-
-        // Calculate depth based on indent size
-        depth = leadingSpaces / indentSize;
-
-        // In strict mode, check if it's an exact multiple
-        if (context.options.strict() && leadingSpaces > 0
-            && leadingSpaces % indentSize != 0) {
-            throw new IllegalArgumentException(
-                String.format("Non-multiple indentation: %d spaces with indent=%d at line %d",
-                    leadingSpaces, indentSize, context.currentLine + 1));
-        }
-
-        return depth;
-    }
-
-    /**
-     * Validates indentation in strict mode.
-     * Checks for tabs, mixed tabs/spaces, and non-multiple indentation.
-     */
-    private static void validateIndentation(String line, DecodeContext context) {
-        if (line.trim().isEmpty()) {
-            // Blank lines are allowed (handled separately)
-            return;
-        }
-
-        int indentSize = context.options.indent();
-        int leadingSpaces = 0;
-
-        for (int i = 0; i < line.length(); i++) {
-            char c = line.charAt(i);
-            if (c == '\t') {
-                throw new IllegalArgumentException(
-                    String.format("Tab character used in indentation at line %d", context.currentLine + 1));
-            } else if (c == ' ') {
-                leadingSpaces++;
-            } else {
-                // Reached non-whitespace
-                break;
-            }
-        }
-
-        // Check for non-multiple indentation (only if there's actual content)
-        if (leadingSpaces > 0 && leadingSpaces % indentSize != 0) {
-            throw new IllegalArgumentException(
-                String.format("Non-multiple indentation: %d spaces with indent=%d at line %d",
-                    leadingSpaces, indentSize, context.currentLine + 1));
-        }
-    }
-
-    /**
-     * Checks if a line is blank (empty or only whitespace).
-     */
-    private static boolean isBlankLine(String line) {
-        return line.trim().isEmpty();
-    }
-
-    /**
-     * Finds the next non-blank line starting from the given index.
-     */
-    private static int findNextNonBlankLine(int startIndex, DecodeContext context) {
-        int index = startIndex;
-        while (index < context.lines.length && isBlankLine(context.lines[index])) {
-            index++;
-        }
-        return index;
-    }
-
-    /**
      * Determines if tabular array parsing should terminate based online depth.
      * Returns true if array should terminate, false otherwise.
      */
@@ -217,7 +116,7 @@ public class TabularArrayDecoder {
         if (lineDepth < expectedRowDepth) {
             if (lineDepth == headerDepth) {
                 String content = line.substring(headerDepth * context.options.indent());
-                int colonIdx = findUnquotedColon(content);
+                int colonIdx = DecodeHelper.findUnquotedColon(content);
                 if (colonIdx > 0) {
                     return true; // Key-value pair at same depth - terminate array
                 }
@@ -228,7 +127,7 @@ public class TabularArrayDecoder {
         // Check for key-value pair at expected row depth
         if (lineDepth == expectedRowDepth) {
             String rowContent = line.substring(expectedRowDepth * context.options.indent());
-            int colonIdx = findUnquotedColon(rowContent);
+            int colonIdx = DecodeHelper.findUnquotedColon(rowContent);
             return colonIdx > 0; // Key-value pair at same depth as rows - terminate array
         }
 
@@ -253,31 +152,6 @@ public class TabularArrayDecoder {
             return false;
         }
         return true;
-    }
-
-    /**
-     * Finds the index of the first unquoted colon in a line.
-     * Critical for handling quoted keys like "order:id": value.
-     */
-    protected static int findUnquotedColon(String content) {
-        boolean inQuotes = false;
-        boolean escaped = false;
-
-        for (int i = 0; i < content.length(); i++) {
-            char c = content.charAt(i);
-
-            if (escaped) {
-                escaped = false;
-            } else if (c == '\\') {
-                escaped = true;
-            } else if (c == '"') {
-                inQuotes = !inQuotes;
-            } else if (c == ':' && !inQuotes) {
-                return i;
-            }
-        }
-
-        return -1;
     }
 
     /**
