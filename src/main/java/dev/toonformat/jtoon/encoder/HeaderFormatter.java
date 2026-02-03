@@ -2,7 +2,13 @@ package dev.toonformat.jtoon.encoder;
 
 import java.util.List;
 
-import static dev.toonformat.jtoon.util.Constants.*;
+import static dev.toonformat.jtoon.util.Constants.COLON;
+import static dev.toonformat.jtoon.util.Constants.OPEN_BRACKET;
+import static dev.toonformat.jtoon.util.Constants.COMMA;
+import static dev.toonformat.jtoon.util.Constants.OPEN_BRACE;
+import static dev.toonformat.jtoon.util.Constants.CLOSE_BRACE;
+import static dev.toonformat.jtoon.util.Constants.CLOSE_BRACKET;
+import static dev.toonformat.jtoon.util.Constants.HASHTAG;
 
 /**
  * Formats headers for arrays and tables in TOON format.
@@ -81,7 +87,7 @@ public final class HeaderFormatter {
         header.append(OPEN_BRACKET);
         
         if (lengthMarker) {
-            header.append("#");
+            header.append(HASHTAG);
         }
         
         header.append(length);

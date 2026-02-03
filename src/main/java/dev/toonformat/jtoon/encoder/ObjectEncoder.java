@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static dev.toonformat.jtoon.util.Constants.DOT;
 import static dev.toonformat.jtoon.util.Constants.COLON;
 import static dev.toonformat.jtoon.util.Constants.SPACE;
 
@@ -44,7 +45,7 @@ public final class ObjectEncoder {
         if (depth == 0 && rootLiteralKeys != null) {
             rootLiteralKeys.clear();
             fields.stream()
-                .filter(e -> e.getKey().contains("."))
+                .filter(e -> e.getKey().contains(DOT))
                 .map(Map.Entry::getKey)
                 .forEach(rootLiteralKeys::add);
         }
@@ -89,7 +90,7 @@ public final class ObjectEncoder {
             return;
         }
         String encodedKey = PrimitiveEncoder.encodeKey(key);
-        String currentPath = pathPrefix != null ? pathPrefix + "." + key : key;
+        String currentPath = pathPrefix != null ? pathPrefix + DOT + key : key;
         int effectiveFlattenDepth = flattenDepth != null && flattenDepth > 0 ? flattenDepth : options.flattenDepth();
         int remainingDepth = effectiveFlattenDepth - depth;
 
@@ -156,9 +157,9 @@ public final class ObjectEncoder {
 
         // Case 2: Partially folded with a tail object
         if (remainder.isObject()) {
-            writer.push(depth, indentedLine(depth, encodedFoldedKey + ":", options.indent()));
+            writer.push(depth, indentedLine(depth, encodedFoldedKey + COLON, options.indent()));
 
-            String foldedPath = pathPrefix != null ? String.join(".", pathPrefix, foldedKey) : foldedKey;
+            String foldedPath = pathPrefix != null ? String.join(DOT, pathPrefix, foldedKey) : foldedKey;
             int newRemainingDepth = remainingDepth - foldResult.segmentCount();
 
             if (newRemainingDepth <= 0) {
@@ -182,7 +183,7 @@ public final class ObjectEncoder {
         if (leaf.isValueNode()) {
             writer.push(depth,
                 indentedLine(depth,
-                    encodedFoldedKey + ": " +
+                    encodedFoldedKey + COLON + SPACE +
                         PrimitiveEncoder.encodePrimitive(leaf, options.delimiter().toString()),
                     options.indent()));
             return;
@@ -196,7 +197,7 @@ public final class ObjectEncoder {
 
         // Object
         if (leaf.isObject()) {
-            writer.push(depth, indentedLine(depth, encodedFoldedKey + ":", options.indent()));
+            writer.push(depth, indentedLine(depth, encodedFoldedKey + COLON, options.indent()));
             if (!leaf.isEmpty()) {
                 encodeObject((ObjectNode) leaf, writer, depth + 1, options,
                     null, null, null, null);

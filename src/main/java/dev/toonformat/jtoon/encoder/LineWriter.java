@@ -3,6 +3,8 @@ package dev.toonformat.jtoon.encoder;
 import java.util.ArrayList;
 import java.util.List;
 
+import static dev.toonformat.jtoon.util.Constants.SPACE;
+
 /**
  * Line writer that accumulates indented lines for building the final output.
  */
@@ -16,7 +18,7 @@ public final class LineWriter {
      * @param indentSize Number of spaces per indentation level
      */
     public LineWriter(int indentSize) {
-        this.indentationString = " ".repeat(indentSize);
+        this.indentationString = SPACE.repeat(indentSize);
     }
 
     /**

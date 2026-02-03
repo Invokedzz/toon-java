@@ -10,6 +10,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+import static dev.toonformat.jtoon.util.Constants.DOT;
+
 /**
  * Recursively flattens a JSON object or array into a single-level object.
  */
@@ -75,7 +77,7 @@ public final class Flatten {
         }
 
         // start chain from absolute key
-        String absKey = (pathPrefix == null) ? key : String.join(".", pathPrefix, key);
+        String absKey = (pathPrefix == null) ? key : String.join(DOT, pathPrefix, key);
 
         // Collect segments of the single-key chain
         final ChainResult chain = collectSingleKeyChain(absKey, value, remainingDepth);
@@ -97,7 +99,7 @@ public final class Flatten {
         }
 
         // Build folded key
-        String foldedKey = String.join(".", chain.segments);
+        String foldedKey = String.join(DOT, chain.segments);
 
         // Detect collisions with sibling keys
         if (siblings.contains(foldedKey)) {
@@ -107,7 +109,7 @@ public final class Flatten {
         // Compute absolute dotted path
         String absolutePath =
                 (pathPrefix != null && !pathPrefix.isEmpty())
-                        ? String.join(".", pathPrefix, foldedKey)
+                        ? String.join(DOT, pathPrefix, foldedKey)
                         : foldedKey;
 
 
@@ -138,8 +140,8 @@ public final class Flatten {
      */
     private static ChainResult collectSingleKeyChain(String startKey, JsonNode startValue, int maxDepth) {
         // normalize absolute key to its local segment
-        String localStartKey = startKey.contains(".")
-                ? startKey.substring(startKey.lastIndexOf('.') + 1)
+        String localStartKey = startKey.contains(DOT)
+                ? startKey.substring(startKey.lastIndexOf(DOT.charAt(0)) + 1)
                 : startKey;
 
         final List<String> segments = new ArrayList<>();
