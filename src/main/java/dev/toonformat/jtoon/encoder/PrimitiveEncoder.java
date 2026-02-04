@@ -8,7 +8,8 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Objects;
 
-import static dev.toonformat.jtoon.util.Constants.*;
+import static dev.toonformat.jtoon.util.Constants.NULL_LITERAL;
+import static dev.toonformat.jtoon.util.Constants.DOUBLE_QUOTE;
 
 /**
  * Encodes primitive values and object keys for TOON format.

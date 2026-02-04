@@ -10,7 +10,12 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import static dev.toonformat.jtoon.util.Constants.*;
+import static dev.toonformat.jtoon.util.Constants.LIST_ITEM_MARKER;
+import static dev.toonformat.jtoon.util.Constants.COLON;
+import static dev.toonformat.jtoon.util.Constants.SPACE;
+import static dev.toonformat.jtoon.util.Constants.LIST_ITEM_PREFIX;
+import static dev.toonformat.jtoon.util.Constants.OPEN_BRACKET;
+import static dev.toonformat.jtoon.util.Constants.CLOSE_BRACKET;
 
 /**
  * Handles encoding of objects as list items in non-uniform arrays.

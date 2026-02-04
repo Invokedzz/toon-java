@@ -1,6 +1,5 @@
 package dev.toonformat.jtoon.encoder;
 
-
 import dev.toonformat.jtoon.EncodeOptions;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.node.ArrayNode;
