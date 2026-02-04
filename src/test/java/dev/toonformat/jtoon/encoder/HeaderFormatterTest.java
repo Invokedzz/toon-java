@@ -1,5 +1,6 @@
 package dev.toonformat.jtoon.encoder;
 
+import dev.toonformat.jtoon.Delimiter;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -25,12 +26,12 @@ public class HeaderFormatterTest {
     @Nested
     @DisplayName("Simple Array Headers")
     class SimpleArrayHeaders {
-
+//
         @Test
         @DisplayName("should format simple array header without key")
         void testSimpleArrayWithoutKey() {
             // Given
-            String result = HeaderFormatter.format(3, null, null, ",", false);
+            String result = HeaderFormatter.format(3, null, null, Delimiter.COMMA.toString(), false);
 
             // Then
             assertEquals("[3]:", result);
@@ -40,7 +41,7 @@ public class HeaderFormatterTest {
         @DisplayName("should format simple array header with key")
         void testSimpleArrayWithKey() {
             // Given
-            String result = HeaderFormatter.format(5, "items", null, ",", false);
+            String result = HeaderFormatter.format(5, "items", null, Delimiter.COMMA.toString(), false);
 
             // Then
             assertEquals("items[5]:", result);
@@ -50,7 +51,7 @@ public class HeaderFormatterTest {
         @DisplayName("should format empty array")
         void testEmptyArray() {
             // Given
-            String result = HeaderFormatter.format(0, "items", null, ",", false);
+            String result = HeaderFormatter.format(0, "items", null, Delimiter.COMMA.toString(), false);
 
             // Then
             assertEquals("items[0]:", result);
@@ -60,7 +61,7 @@ public class HeaderFormatterTest {
         @DisplayName("should format array with length marker")
         void testArrayWithLengthMarker() {
             // Given
-            String result = HeaderFormatter.format(3, "items", null, ",", true);
+            String result = HeaderFormatter.format(3, "items", null, Delimiter.COMMA.toString(), true);
 
             // Then
             assertEquals("items[#3]:", result);
@@ -78,7 +79,7 @@ public class HeaderFormatterTest {
             List<String> fields = List.of("id", "name", "age");
 
             // When
-            String result = HeaderFormatter.format(2, "users", fields, ",", false);
+            String result = HeaderFormatter.format(2, "users", fields, Delimiter.COMMA.toString(), false);
 
             // Then
             assertEquals("users[2]{id,name,age}:", result);
@@ -91,7 +92,7 @@ public class HeaderFormatterTest {
             List<String> fields = List.of("value");
 
             // When
-            String result = HeaderFormatter.format(5, "data", fields, ",", false);
+            String result = HeaderFormatter.format(5, "data", fields, Delimiter.COMMA.toString(), false);
 
             // Then
             assertEquals("data[5]{value}:", result);
@@ -104,7 +105,7 @@ public class HeaderFormatterTest {
             List<String> fields = List.of("x", "y");
 
             // When
-            String result = HeaderFormatter.format(10, null, fields, ",", false);
+            String result = HeaderFormatter.format(10, null, fields, Delimiter.COMMA.toString(), false);
 
             // Then
             assertEquals("[10]{x,y}:", result);
@@ -117,7 +118,7 @@ public class HeaderFormatterTest {
             List<String> fields = List.of();
 
             // When
-            String result = HeaderFormatter.format(3, "items", fields, ",", false);
+            String result = HeaderFormatter.format(3, "items", fields, Delimiter.COMMA.toString(), false);
 
             // Then
             assertEquals("items[3]:", result);
@@ -130,7 +131,7 @@ public class HeaderFormatterTest {
             List<String> fields = List.of("id", "name");
 
             // When
-            String result = HeaderFormatter.format(2, "users", fields, ",", true);
+            String result = HeaderFormatter.format(2, "users", fields, Delimiter.COMMA.toString(), true);
 
             // Then
             assertEquals("users[#2]{id,name}:", result);
@@ -166,7 +167,7 @@ public class HeaderFormatterTest {
         @DisplayName("should format array with pipe delimiter")
         void testArrayWithPipeDelimiter() {
             // Given
-            String result = HeaderFormatter.format(5, "items", null, "|", false);
+            String result = HeaderFormatter.format(5, "items", null, Delimiter.PIPE.toString(), false);
 
             // Then
             assertEquals("items[5|]:", result);
@@ -176,7 +177,7 @@ public class HeaderFormatterTest {
         @DisplayName("should format array with tab delimiter")
         void testArrayWithTabDelimiter() {
             // Given
-            String result = HeaderFormatter.format(5, "items", null, "\t", false);
+            String result = HeaderFormatter.format(5, "items", null, Delimiter.TAB.toString(), false);
 
             // Then
             assertEquals("items[5\t]:", result);
@@ -189,7 +190,7 @@ public class HeaderFormatterTest {
             List<String> fields = List.of("x", "y");
 
             // When
-            String result = HeaderFormatter.format(2, "points", fields, "|", true);
+            String result = HeaderFormatter.format(2, "points", fields, Delimiter.PIPE.toString(), true);
 
             // Then
             assertEquals("points[#2|]{x|y}:", result);
@@ -204,7 +205,7 @@ public class HeaderFormatterTest {
         @DisplayName("should quote key with spaces")
         void testKeyWithSpaces() {
             // Given
-            String result = HeaderFormatter.format(3, "my items", null, ",", false);
+            String result = HeaderFormatter.format(3, "my items", null, Delimiter.COMMA.toString(), false);
 
             // Then
             assertEquals("\"my items\"[3]:", result);
@@ -214,7 +215,7 @@ public class HeaderFormatterTest {
         @DisplayName("should quote numeric key")
         void testNumericKey() {
             // Given
-            String result = HeaderFormatter.format(2, "123", null, ",", false);
+            String result = HeaderFormatter.format(2, "123", null, Delimiter.COMMA.toString(), false);
 
             // Then
             assertEquals("\"123\"[2]:", result);
@@ -224,7 +225,7 @@ public class HeaderFormatterTest {
         @DisplayName("should not quote simple alphanumeric key")
         void testSimpleKey() {
             // Given
-            String result = HeaderFormatter.format(3, "items", null, ",", false);
+            String result = HeaderFormatter.format(3, "items", null, Delimiter.COMMA.toString(), false);
 
             // Then
             assertEquals("items[3]:", result);
@@ -237,7 +238,7 @@ public class HeaderFormatterTest {
             List<String> fields = List.of("first name", "last name");
 
             // When
-            String result = HeaderFormatter.format(2, "users", fields, ",", false);
+            String result = HeaderFormatter.format(2, "users", fields, Delimiter.COMMA.toString(), false);
 
             // Then
             assertEquals("users[2]{\"first name\",\"last name\"}:", result);
@@ -250,7 +251,7 @@ public class HeaderFormatterTest {
             List<String> fields = List.of("id", "full name", "age");
 
             // When
-            String result = HeaderFormatter.format(2, "users", fields, ",", false);
+            String result = HeaderFormatter.format(2, "users", fields, Delimiter.COMMA.toString(), false);
 
             // Then
             assertEquals("users[2]{id,\"full name\",age}:", result);
@@ -266,7 +267,7 @@ public class HeaderFormatterTest {
         void testRecordFormat() {
             // Given
             HeaderFormatter.HeaderConfig config = new HeaderFormatter.HeaderConfig(
-                3, "items", List.of("id", "name"), ",", false);
+                3, "items", List.of("id", "name"), Delimiter.COMMA.toString(), false);
 
             // When
             String result = HeaderFormatter.format(config);
@@ -280,7 +281,7 @@ public class HeaderFormatterTest {
         void testRecordWithNullKey() {
             // Given
             HeaderFormatter.HeaderConfig config = new HeaderFormatter.HeaderConfig(
-                5, null, null, ",", false);
+                5, null, null, Delimiter.COMMA.toString(), false);
 
             // When
             String result = HeaderFormatter.format(config);
@@ -294,7 +295,7 @@ public class HeaderFormatterTest {
         void testRecordWithPipeDelimiter() {
             // Given
             HeaderFormatter.HeaderConfig config = new HeaderFormatter.HeaderConfig(
-                2, "data", List.of("x", "y"), "|", true);
+                2, "data", List.of("x", "y"), Delimiter.PIPE.toString(), true);
             // When
             String result = HeaderFormatter.format(config);
 
@@ -311,7 +312,7 @@ public class HeaderFormatterTest {
         @DisplayName("should handle large array length")
         void testLargeLength() {
             // Given
-            String result = HeaderFormatter.format(999999, "data", null, ",", false);
+            String result = HeaderFormatter.format(999999, "data", null, Delimiter.COMMA.toString(), false);
 
             // Then
             assertEquals("data[999999]:", result);
@@ -324,7 +325,7 @@ public class HeaderFormatterTest {
             List<String> fields = List.of("id", "name");
 
             // When
-            String result = HeaderFormatter.format(0, "empty", fields, ",", false);
+            String result = HeaderFormatter.format(0, "empty", fields, Delimiter.COMMA.toString(), false);
 
             // Then
             assertEquals("empty[0]{id,name}:", result);
@@ -337,7 +338,7 @@ public class HeaderFormatterTest {
             List<String> fields = List.of("f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10");
 
             // When
-            String result = HeaderFormatter.format(1, "data", fields, ",", false);
+            String result = HeaderFormatter.format(1, "data", fields, Delimiter.COMMA.toString(), false);
 
             // Then
             assertEquals("data[1]{f1,f2,f3,f4,f5,f6,f7,f8,f9,f10}:", result);
@@ -347,7 +348,7 @@ public class HeaderFormatterTest {
         @DisplayName("should handle null fields list (treated as no fields)")
         void testNullFields() {
             // Given
-            String result = HeaderFormatter.format(3, "items", null, ",", false);
+            String result = HeaderFormatter.format(3, "items", null, Delimiter.COMMA.toString(), false);
 
             // Then
             assertEquals("items[3]:", result);
@@ -365,7 +366,7 @@ public class HeaderFormatterTest {
             List<String> fields = List.of("id", "name", "stars", "forks");
 
             // When
-            String result = HeaderFormatter.format(100, "repositories", fields, ",", false);
+            String result = HeaderFormatter.format(100, "repositories", fields, Delimiter.COMMA.toString(), false);
 
             // Then
             assertEquals("repositories[100]{id,name,stars,forks}:", result);
@@ -391,7 +392,7 @@ public class HeaderFormatterTest {
             List<String> fields = List.of("id", "name", "department", "salary");
 
             // When
-            String result = HeaderFormatter.format(50, "employees", fields, "\t", false);
+            String result = HeaderFormatter.format(50, "employees", fields, Delimiter.TAB.toString(), false);
 
             // Then
             assertEquals("employees[50\t]{id\tname\tdepartment\tsalary}:", result);
@@ -404,7 +405,7 @@ public class HeaderFormatterTest {
             List<String> fields = List.of("sku", "qty", "price");
 
             // When
-            String result = HeaderFormatter.format(3, "items", fields, ",", false);
+            String result = HeaderFormatter.format(3, "items", fields, Delimiter.COMMA.toString(), false);
 
             // Then
             assertEquals("items[3]{sku,qty,price}:", result);
