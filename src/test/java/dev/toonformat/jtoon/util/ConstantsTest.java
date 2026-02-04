@@ -7,8 +7,26 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 
-import static dev.toonformat.jtoon.util.Constants.*;
-import static org.junit.jupiter.api.Assertions.*;
+import static dev.toonformat.jtoon.util.Constants.LIST_ITEM_PREFIX;
+import static dev.toonformat.jtoon.util.Constants.LIST_ITEM_MARKER;
+import static dev.toonformat.jtoon.util.Constants.COMMA;
+import static dev.toonformat.jtoon.util.Constants.COLON;
+import static dev.toonformat.jtoon.util.Constants.SPACE;
+import static dev.toonformat.jtoon.util.Constants.DOT;
+import static dev.toonformat.jtoon.util.Constants.HASHTAG;
+import static dev.toonformat.jtoon.util.Constants.OPEN_BRACKET;
+import static dev.toonformat.jtoon.util.Constants.CLOSE_BRACKET;
+import static dev.toonformat.jtoon.util.Constants.OPEN_BRACE;
+import static dev.toonformat.jtoon.util.Constants.CLOSE_BRACE;
+import static dev.toonformat.jtoon.util.Constants.NULL_LITERAL;
+import static dev.toonformat.jtoon.util.Constants.TRUE_LITERAL;
+import static dev.toonformat.jtoon.util.Constants.FALSE_LITERAL;
+import static dev.toonformat.jtoon.util.Constants.BACKSLASH;
+import static dev.toonformat.jtoon.util.Constants.DOUBLE_QUOTE;
+
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 /**
  * Unit tests for Constants.
